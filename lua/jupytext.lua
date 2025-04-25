@@ -1,7 +1,7 @@
 local M = {}
 
 -- Get the filetype that should be set for the buffer after loading ipynb file
-function M.get_filetype(ipynb_file, format, metadata)
+function M.get_filetype(format, metadata)
   if format == 'markdown' then
     return format
   elseif format == 'ipynb' then
@@ -203,7 +203,7 @@ M.setup = function(opts)
           end
           local filetype = M.get_option('filetype')
           if type(filetype) == 'function' then
-            filetype = filetype(url, format, metadata)
+            filetype = filetype(format, metadata)
           end
           vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr })
           vim.api.nvim_set_option_value('modified', modified, { buf = bufnr })
@@ -324,7 +324,18 @@ function M.open_notebook(ipynb_file, bufnr)
   if format == 'ipynb' then
     vim.api.nvim_buf_set_lines(bufnr, -2, -1, false, json_lines)
   else
-    local cmd = { jupytext, '--from', 'ipynb', '--to', format, '--output', '-' }
+    -- local cmd = { jupytext, '--from', 'ipynb', '--to', format, '--output', '-' }
+    local cmd = {
+      jupytext,
+      '--from',
+      'ipynb',
+      '--to',
+      format,
+      '--output',
+      '-',
+      '--opt',
+      'notebook_metadata_filter=-all',
+    }
     local proc = vim.system(cmd, { text = true, stdin = json_lines }):wait()
     if proc.code == 0 then
       local text = proc.stdout:gsub('\n$', '') -- strip trailing newline
@@ -335,7 +346,7 @@ function M.open_notebook(ipynb_file, bufnr)
   end
   local filetype = M.get_option('filetype')
   if type(filetype) == 'function' then
-    filetype = filetype(source_file, format, metadata)
+    filetype = filetype(format, metadata)
   end
   vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr })
   vim.api.nvim_set_option_value('modified', false, { buf = bufnr })
@@ -380,7 +391,7 @@ function M.write_notebook(ipynb_file, metadata, bufnr)
       vim.notify('WARNING: The file has been changed since reading it!!!', vim.log.levels.WARN)
       vim.notify('Do you really want to write to it (y/n)? ', vim.log.levels.INFO)
       local input = vim.fn.getchar()
-      local key = vim.fn.nr2char(input)
+      local key = vim.fn.nr2char(tonumber(input) or 0)
       if key ~= 'y' then
         vim.notify('Aborted', vim.log.levels.INFO)
         return
@@ -405,9 +416,10 @@ function M.write_notebook(ipynb_file, metadata, bufnr)
   if via_tempfile then
     tempdir = vim.fn.tempname()
     vim.fn.mkdir(tempdir)
-    local yaml_lines = M.get_yaml_lines(lines)
-    local yaml_data = M.parse_yaml(yaml_lines)
-    local extension = yaml_data.jupyter.jupytext.text_representation.extension
+    -- local yaml_lines = M.get_yaml_lines(lines)
+    -- local yaml_data = M.parse_yaml(yaml_lines)
+    -- local extension = yaml_data.jupyter.jupytext.text_representation.extension
+    local extension = '.py'
     local basename = ipynb_file:match('([^/]+)%.%w+$')
     local tempfile = tempdir .. '/' .. basename .. extension
     M.write_buffer(tempfile, bufnr)
