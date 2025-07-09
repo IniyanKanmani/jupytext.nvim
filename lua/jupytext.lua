@@ -356,7 +356,7 @@ function M.open_notebook(ipynb_file, bufnr)
 end
 
 -- Call `jupytext --sync` or `jupytext --set-formats` for the given ipynb file
-function M.sync(ipynb_file, asynchronous, formats)
+function M.sync(ipynb_file, asynchronous, formats, on_sync_exit)
   local jupytext = M.get_option('jupytext')
   local cmd
   if formats then
@@ -369,6 +369,9 @@ function M.sync(ipynb_file, asynchronous, formats)
       vim.schedule(function()
         vim.notify(proc.stderr, vim.log.levels.ERROR)
       end)
+    end
+    if on_sync_exit then
+      on_sync_exit(proc)
     end
   end
   if asynchronous then
@@ -428,6 +431,16 @@ function M.write_notebook(ipynb_file, metadata, bufnr)
     cmd_opts.stdin = lines
   end
   local async_write = M.get_option('async_write')
+
+  local fire_post_write_event = function()
+    M.schedule(async_write, function()
+      vim.api.nvim_exec_autocmds('User', {
+        pattern = 'JupytextBufWritePost',
+        modeline = false,
+      })
+    end)
+  end
+
   local on_convert = function(proc)
     if proc.code == 0 then
       local msg = '"' .. ipynb_file .. '"'
@@ -445,8 +458,9 @@ function M.write_notebook(ipynb_file, metadata, bufnr)
         end)
       end
       if autosync and write_in_place and formats then
-        M.sync(ipynb_file, async_write, formats)
-        -- without autosync, the written file will be unpaired
+        M.sync(ipynb_file, async_write, formats, fire_post_write_event)
+      else
+        fire_post_write_event()
       end
     else
       M.schedule(async_write, function()
