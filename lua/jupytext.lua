@@ -144,7 +144,7 @@ M.setup = function(opts)
         local ipynb_file = args.file:match('^(.+)%.%w+$') .. '.ipynb'
         if M._file_exists(ipynb_file) then
           M.sync(ipynb_file)
-          print('Synced with "' .. ipynb_file .. '" via jupytext')
+          vim.notify('Synced with "' .. ipynb_file .. '" via jupytext')
         end
       end,
     })
@@ -207,7 +207,7 @@ M.setup = function(opts)
           end
           vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr })
           vim.api.nvim_set_option_value('modified', modified, { buf = bufnr })
-          print('"' .. url .. '" via jupytext with format: ' .. format)
+          vim.notify('"' .. url .. '" via jupytext with format: ' .. format)
         end
         vim.b.jupytext_autosync = false
         vim.b.jupytext_async_write = false
@@ -299,15 +299,24 @@ end
 function M.open_notebook(ipynb_file, bufnr)
   local source_file = vim.uv.fs_realpath(ipynb_file) -- absolute path if exists, or `nil`
   bufnr = bufnr or 0 -- current buffer, by default
-  print('Loading via jupytext…')
+  vim.notify('Loading via jupytext…')
   local autosync = M.get_option('autosync')
-  if source_file and autosync then
-    M.sync(source_file)
-  end
   local json_lines = {}
+  local use_template = false
   if source_file == nil then
+    use_template = true
+  else
+    local stat = vim.uv.fs_stat(source_file)
+    if stat and stat.size == 0 then
+      use_template = true
+    end
+  end
+  if use_template then
     json_lines = M.read_file(M.get_option('new_template'), true)
   else
+    if autosync then
+      M.sync(source_file)
+    end
     local success, _json_lines = pcall(function()
       return M.read_file(ipynb_file, true)
     end)
@@ -317,7 +326,6 @@ function M.open_notebook(ipynb_file, bufnr)
   end
   local metadata = M.get_metadata(json_lines)
   local format = M.get_option('format')
-  local jupytext = M.get_option('jupytext')
   if type(format) == 'function' then
     format = format(source_file, metadata)
   end
@@ -350,7 +358,7 @@ function M.open_notebook(ipynb_file, bufnr)
   end
   vim.api.nvim_set_option_value('filetype', filetype, { buf = bufnr })
   vim.api.nvim_set_option_value('modified', false, { buf = bufnr })
-  print('"' .. ipynb_file .. '" via jupytext with format: ' .. format)
+  vim.notify('"' .. ipynb_file .. '" via jupytext with format: ' .. format)
   vim.cmd('redraw')
   return metadata
 end
@@ -448,7 +456,7 @@ function M.write_notebook(ipynb_file, metadata, bufnr)
         msg = msg .. ' [New]'
       end
       msg = msg .. ' ' .. #lines .. 'L via jupytext [w]'
-      print(msg)
+      vim.notify(msg)
       if write_in_place or has_cpo_plus then
         M.schedule(async_write, function()
           vim.api.nvim_set_option_value('modified', false, { buf = bufnr })
