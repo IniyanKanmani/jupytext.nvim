@@ -4,12 +4,16 @@ local M = {}
 function M.get_filetype(format, metadata)
   if format == 'markdown' then
     return format
+  elseif format == 'quarto' then
+    return format
   elseif format == 'ipynb' then
     return 'json'
   elseif format:sub(1, 2) == 'md' then
     return 'markdown'
   elseif format:sub(1, 3) == 'Rmd' then
     return 'markdown'
+  elseif format:sub(1, 2) == 'qmd' then
+    return 'quarto'
   else
     if metadata and metadata.kernelspec then
       return metadata.kernelspec.language
