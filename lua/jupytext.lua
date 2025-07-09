@@ -297,6 +297,11 @@ end
 -- Load ipynb file into the buffer via jupytext conversion.
 -- The `ipynb_file` can be an existing file or a new file, but it must be a valid local path
 function M.open_notebook(ipynb_file, bufnr)
+  local jupytext = M.get_option('jupytext')
+  if vim.fn.executable(jupytext) == 0 then
+    vim.notify('CLI command not found: ' .. tostring(jupytext), vim.log.levels.ERROR)
+    return
+  end
   local source_file = vim.uv.fs_realpath(ipynb_file) -- absolute path if exists, or `nil`
   bufnr = bufnr or 0 -- current buffer, by default
   vim.notify('Loading via jupytext…')
