@@ -88,23 +88,25 @@ M.setup = function(opts)
         desc = 'Convert to native .ipynb json format through jupytext on writing',
         group = buf_augroup,
         callback = function(bufargs)
-          vim.cmd.doautocmd({
-            args = { 'BufWritePre', bufargs.file },
-            mods = { emsg_silent = true },
-          })
-          local format = M.get_option('format')
-          if (format ~= 'ipynb') and (bufargs.file:sub(-6) == '.ipynb') then
-            M.write_notebook(bufargs.file, metadata, bufnr)
-          else -- write without conversion
-            local success = M.write_buffer(bufargs.file, bufnr)
-            if success and (vim.o.cpoptions:find('%+') ~= nil) then
-              vim.api.nvim_set_option_value('modified', false, { buf = bufnr })
+          if vim.g.current_jupyter_repl ~= 1 then
+            vim.cmd.doautocmd({
+              args = { 'BufWritePre', bufargs.file },
+              mods = { emsg_silent = true },
+            })
+            local format = M.get_option('format')
+            if (format ~= 'ipynb') and (bufargs.file:sub(-6) == '.ipynb') then
+              M.write_notebook(bufargs.file, metadata, bufnr)
+            else -- write without conversion
+              local success = M.write_buffer(bufargs.file, bufnr)
+              if success and (vim.o.cpoptions:find('%+') ~= nil) then
+                vim.api.nvim_set_option_value('modified', false, { buf = bufnr })
+              end
             end
+            vim.cmd.doautocmd({
+              args = { 'BufWritePost', bufargs.file },
+              mods = { emsg_silent = true },
+            })
           end
-          vim.cmd.doautocmd({
-            args = { 'BufWritePost', bufargs.file },
-            mods = { emsg_silent = true },
-          })
         end,
       })
 
